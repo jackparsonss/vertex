@@ -8,7 +8,3 @@ Turns any function call into a client/server call
 go generate ./cmd/main.go
 go run ./cmd/main.go
 ```
-
-```
-
-```
