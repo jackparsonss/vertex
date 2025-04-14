@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/jackparsonss/platform-x/generated"
+	"github.com/jackparsonss/vertex/generated"
 )
 
 //go:generate go run ../generator/generator.go
