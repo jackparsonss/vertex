@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"text/template"
+
+	"github.com/jackparsonss/vertex/internal/constants"
 )
 
 type FunctionInfo struct {
@@ -53,12 +55,13 @@ func parseParams(fn *ast.FuncDecl) []ParamInfo {
 
 	for i, param := range fn.Type.Params.List {
 		paramType := fmt.Sprintf("%s", param.Type)
-		if len(param.Names) > 0 {
-			for _, name := range param.Names {
-				params = append(params, ParamInfo{Name: name.Name, Type: paramType})
-			}
-		} else {
+		if len(param.Names) == 0 {
 			params = append(params, ParamInfo{Name: fmt.Sprintf("param%d", i), Type: paramType})
+			continue
+		}
+
+		for _, name := range param.Names {
+			params = append(params, ParamInfo{Name: name.Name, Type: paramType})
 		}
 	}
 
@@ -70,26 +73,27 @@ func parseComment(fn *ast.FuncDecl) (string, string) {
 	for _, comment := range fn.Doc.List {
 		text := comment.Text
 
-		if strings.Contains(text, "@server") {
-			// Extract path and method
-			if strings.Contains(text, "path=") {
-				pathStart := strings.Index(text, "path=") + 5
-				pathEnd := strings.Index(text[pathStart:], " ")
-				if pathEnd == -1 {
-					path = text[pathStart:]
-				} else {
-					path = text[pathStart : pathStart+pathEnd]
-				}
-			}
+		if !strings.Contains(text, constants.SERVER_DIRECTIVE) {
+			continue
+		}
 
-			if strings.Contains(text, "method=") {
-				methodStart := strings.Index(text, "method=") + 7
-				methodEnd := strings.Index(text[methodStart:], " ")
-				if methodEnd == -1 {
-					method = text[methodStart:]
-				} else {
-					method = text[methodStart : methodStart+methodEnd]
-				}
+		if strings.Contains(text, constants.PATH_DIRECTIVE) {
+			pathStart := strings.Index(text, constants.PATH_DIRECTIVE) + 5
+			pathEnd := strings.Index(text[pathStart:], " ")
+			if pathEnd == -1 {
+				path = text[pathStart:]
+			} else {
+				path = text[pathStart : pathStart+pathEnd]
+			}
+		}
+
+		if strings.Contains(text, constants.METHOD_DIRECTIVE) {
+			methodStart := strings.Index(text, constants.METHOD_DIRECTIVE) + 7
+			methodEnd := strings.Index(text[methodStart:], " ")
+			if methodEnd == -1 {
+				method = text[methodStart:]
+			} else {
+				method = text[methodStart : methodStart+methodEnd]
 			}
 		}
 	}
@@ -97,7 +101,6 @@ func parseComment(fn *ast.FuncDecl) (string, string) {
 	return path, method
 }
 
-// Find functions with @server comment
 func parseFunctions(node *ast.File) []FunctionInfo {
 	var functions []FunctionInfo
 	ast.Inspect(node, func(n ast.Node) bool {
