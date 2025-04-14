@@ -47,16 +47,18 @@ func parseFunction(fn *ast.FuncDecl) *FunctionInfo {
 
 func parseParams(fn *ast.FuncDecl) []ParamInfo {
 	var params []ParamInfo
-	if fn.Type.Params != nil {
-		for i, param := range fn.Type.Params.List {
-			paramType := fmt.Sprintf("%s", param.Type)
-			var paramName string
-			if len(param.Names) > 0 {
-				paramName = param.Names[0].Name
-			} else {
-				paramName = fmt.Sprintf("param%d", i)
+	if fn.Type.Params == nil {
+		return params
+	}
+
+	for i, param := range fn.Type.Params.List {
+		paramType := fmt.Sprintf("%s", param.Type)
+		if len(param.Names) > 0 {
+			for _, name := range param.Names {
+				params = append(params, ParamInfo{Name: name.Name, Type: paramType})
 			}
-			params = append(params, ParamInfo{Name: paramName, Type: paramType})
+		} else {
+			params = append(params, ParamInfo{Name: fmt.Sprintf("param%d", i), Type: paramType})
 		}
 	}
 
@@ -141,7 +143,7 @@ func main() {
 }
 
 func generateServerCode(functions []FunctionInfo) {
-	tmpl := template.Must(template.New("server.tmpl").ParseFiles("../generator/server.tmpl"))
+	tmpl := template.Must(template.New("server.tmpl").ParseFiles("../engine/server.tmpl"))
 
 	file, err := os.Create("../generated/server.go")
 	if err != nil {
@@ -157,7 +159,7 @@ func generateServerCode(functions []FunctionInfo) {
 }
 
 func generateClientCode(functions []FunctionInfo) {
-	tmpl := template.Must(template.New("client.tmpl").ParseFiles("../generator/client.tmpl"))
+	tmpl := template.Must(template.New("client.tmpl").ParseFiles("../engine/client.tmpl"))
 
 	file, err := os.Create("../generated/client.go")
 	if err != nil {

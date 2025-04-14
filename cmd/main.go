@@ -6,7 +6,7 @@ import (
 	"github.com/jackparsonss/vertex/generated"
 )
 
-//go:generate go run ../generator/generator.go
+//go:generate go run ../engine/engine.go
 
 // SayHello is a simple function that will be transformed to make HTTP calls
 // @server path=/hello method=GET
@@ -26,8 +26,8 @@ func main() {
 	result1 := generated.SayHello("World")
 	fmt.Println("SayHello result:", result1)
 
-	// result2 := generated.Add(5, 10)
-	// fmt.Println("Add result:", result2)
+	result2 := generated.Add(5, 10)
+	fmt.Println("Add result:", result2)
 
 	select {}
 }
