@@ -3,31 +3,17 @@ package main
 import (
 	"fmt"
 
-	"github.com/jackparsonss/vertex/generated"
+	"github.com/jackparsonss/vertex/cmd/generated"
 )
-
-//go:generate go run ../engine/engine.go
-
-// SayHello is a simple function that will be transformed to make HTTP calls
-// @server path=/hello method=GET
-func SayHello(name string) string {
-	return fmt.Sprintf("Hello, %s!", name)
-}
-
-// Add two numbers and return the result
-// @server path=/add method=POST
-func Add(a, b int) int {
-	return a + b
-}
 
 func main() {
 	go generated.StartServer()
 
-	result1 := generated.SayHello("World")
-	fmt.Println("SayHello result:", result1)
+	product := generated.GetProduct(0)
+	fmt.Println("product", product)
 
-	result2 := generated.Add(5, 10)
-	fmt.Println("Add result:", result2)
+	products := generated.GetProducts()
+	fmt.Println("products", products)
 
 	select {}
 }

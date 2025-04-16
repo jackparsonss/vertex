@@ -8,9 +8,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+	
+	// Import the main package to access the original types
+	"github.com/jackparsonss/vertex/cmd/{{ .PackageName }}"
 )
 
-{{range .}}
+{{range .Functions}}
 // {{.Name}} is a client wrapper that calls the server function
 func {{.Name}}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{.Name}} {{.Type}}{{end}}) {{.ReturnType}} {
 	{{if eq .Method "GET"}}
@@ -38,7 +42,20 @@ func {{.Name}}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{.Name}
 	{{end}}
 	if err != nil {
 		fmt.Printf("Error making HTTP request: %v\n", err)
-		return {{if eq .ReturnType "string"}}""{{else if eq .ReturnType "int"}}0{{else}}nil{{end}}
+		{{if .IsSlice}}
+		return nil
+		{{else if eq .ReturnType "string"}}
+		return ""
+		{{else if eq .ReturnType "int"}}
+		return 0
+		{{else if eq .ReturnType "bool"}}
+		return false
+		{{else if eq .ReturnType "float64" "float32"}}
+		return 0.0
+		{{else}}
+		var zero {{.ReturnType}}
+		return zero
+		{{end}}
 	}
 	defer resp.Body.Close()
 
@@ -46,28 +63,42 @@ func {{.Name}}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{.Name}
 	responseData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("Error reading response: %v\n", err)
-		return {{if eq .ReturnType "string"}}""{{else if eq .ReturnType "int"}}0{{else}}nil{{end}}
+		{{if .IsSlice}}
+		return nil
+		{{else if eq .ReturnType "string"}}
+		return ""
+		{{else if eq .ReturnType "int"}}
+		return 0
+		{{else if eq .ReturnType "bool"}}
+		return false
+		{{else if eq .ReturnType "float64" "float32"}}
+		return 0.0
+		{{else}}
+		var zero {{.ReturnType}}
+		return zero
+		{{end}}
 	}
 
-	var responseObj map[string]interface{}
-	if err := json.Unmarshal(responseData, &responseObj); err != nil {
+	// Decode response based on return type
+	var result {{.ReturnType}}
+	if err := json.Unmarshal(responseData, &result); err != nil {
 		fmt.Printf("Error parsing response: %v\n", err)
-		return {{if eq .ReturnType "string"}}""{{else if eq .ReturnType "int"}}0{{else}}nil{{end}}
+		{{if .IsSlice}}
+		return nil
+		{{else if eq .ReturnType "string"}}
+		return ""
+		{{else if eq .ReturnType "int"}}
+		return 0
+		{{else if eq .ReturnType "bool"}}
+		return false
+		{{else if eq .ReturnType "float64" "float32"}}
+		return 0.0
+		{{else}}
+		var zero {{.ReturnType}}
+		return zero
+		{{end}}
 	}
-
-	{{if eq .ReturnType "string"}}
-	if result, ok := responseObj["result"].(string); ok {
-		return result
-	}
-	return ""
-	{{else if eq .ReturnType "int"}}
-	if result, ok := responseObj["result"].(float64); ok {
-		return int(result)
-	}
-	return 0
-	{{else}}
-	return responseObj["result"]
-	{{end}}
+	
+	return result
 }
 {{end}}
-
