@@ -35,6 +35,6 @@ func (e *Engine) Compile() {
 	functions := e.vertexParser.Parse()
 
 	generator := codegen.NewGenerator(e.Config, functions)
-	generator.GenerateServerCode(functions)
-	generator.GenerateClientCode(functions)
+	generator.GenerateServerCode()
+	generator.GenerateClientCode()
 }

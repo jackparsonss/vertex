@@ -21,12 +21,12 @@ func NewGenerator(config config.Config, functions []FunctionInfo) *Generator {
 	return &Generator{Config: config}
 }
 
-func (g *Generator) GenerateClientCode(functions []FunctionInfo) {
+func (g *Generator) GenerateClientCode() {
 	tmpl := template.Must(template.ParseFS(templates, "templates/client.tmpl"))
 
 	packageName := ""
-	if len(functions) > 0 {
-		packageName = functions[0].PackageName
+	if len(g.functions) > 0 {
+		packageName = g.functions[0].PackageName
 	}
 
 	templateData := struct {
@@ -34,10 +34,10 @@ func (g *Generator) GenerateClientCode(functions []FunctionInfo) {
 		Functions   []FunctionInfo
 	}{
 		PackageName: packageName,
-		Functions:   functions,
+		Functions:   g.functions,
 	}
 
-	file, err := os.Create("../generated/client.go")
+	file, err := os.Create(fmt.Sprintf("%s/client.go", g.Config.OutputDir))
 	if err != nil {
 		fmt.Printf("Error creating client file: %v\n", err)
 		os.Exit(1)
@@ -50,18 +50,18 @@ func (g *Generator) GenerateClientCode(functions []FunctionInfo) {
 	}
 }
 
-func (G *Generator) GenerateServerCode(functions []FunctionInfo) {
+func (g *Generator) GenerateServerCode() {
 	tmpl := template.Must(template.ParseFS(templates, "templates/server.tmpl"))
 
 	packageName := ""
-	if len(functions) > 0 {
-		packageName = functions[0].PackageName
+	if len(g.functions) > 0 {
+		packageName = g.functions[0].PackageName
 	}
 
 	structFuncs := make(map[string][]FunctionInfo)
 	var standaloneFuncs []FunctionInfo
 
-	for _, fn := range functions {
+	for _, fn := range g.functions {
 		if fn.IsMethod {
 			structFuncs[fn.StructName] = append(structFuncs[fn.StructName], fn)
 		} else {
@@ -87,7 +87,7 @@ func (G *Generator) GenerateServerCode(functions []FunctionInfo) {
 		AllFunctions:    allFunctions,
 	}
 
-	file, err := os.Create("../generated/server.go")
+	file, err := os.Create(fmt.Sprintf("%s/server.go", g.Config.OutputDir))
 	if err != nil {
 		fmt.Printf("Error creating server file: %v\n", err)
 		os.Exit(1)
