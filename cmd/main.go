@@ -1,19 +1,27 @@
 package main
 
 import (
-	"fmt"
+	"flag"
+	"log"
 
-	"github.com/jackparsonss/vertex/cmd/generated"
+	"github.com/jackparsonss/vertex/engine"
+	"github.com/jackparsonss/vertex/internal/config"
 )
 
 func main() {
-	go generated.StartServer()
+	inputFile := flag.String("input", "", "Go source file to parse (required)")
+	outputDir := flag.String("output", "generated", "Directory where generated files will be placed")
+	serverPort := flag.Int("port", 8080, "Port for the server to listen on")
+	serverEndpoint := flag.String("endpoint", "", "Base URL for the client to connect to (defaults to http://localhost:<port>)")
+	packageName := flag.String("package", "generated", "Package name for the generated code")
 
-	product := generated.GetProduct(0)
-	fmt.Println("product", product)
+	flag.Parse()
 
-	products := generated.GetProducts()
-	fmt.Println("products", products)
+	c, err := config.NewConfig(*inputFile, *outputDir, *serverEndpoint, *packageName, *serverPort)
+	if err != nil {
+		log.Fatalf("Error creating config: %v\n", err)
+	}
 
-	select {}
+	engine := engine.NewEngine(c)
+	engine.Compile()
 }
