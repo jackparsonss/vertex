@@ -18,7 +18,7 @@ type Generator struct {
 }
 
 func NewGenerator(config config.Config, functions []FunctionInfo) *Generator {
-	return &Generator{Config: config}
+	return &Generator{Config: config, functions: functions}
 }
 
 func (g *Generator) GenerateClientCode() {
