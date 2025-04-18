@@ -1,6 +1,7 @@
 package codegen
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
 	"html/template"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/jackparsonss/vertex/internal/codegen/types"
 	"github.com/jackparsonss/vertex/internal/config"
+	"golang.org/x/tools/imports"
 )
 
 //go:embed templates/*.tmpl
@@ -22,7 +24,7 @@ func NewGenerator(config config.Config, v types.Vertex) *Generator {
 	return &Generator{Config: config, Vertex: v}
 }
 
-func (g *Generator) GenerateClientCode() {
+func (g *Generator) GenerateClientCode() error {
 	tmpl := template.Must(template.ParseFS(templates, "templates/client.tmpl"))
 
 	packageName := ""
@@ -40,20 +42,27 @@ func (g *Generator) GenerateClientCode() {
 		GoModPackage: g.Vertex.GoModPackage,
 	}
 
-	file, err := os.Create(fmt.Sprintf("%s/client.go", g.Config.OutputDir))
+	var buf bytes.Buffer
+	err := tmpl.Execute(&buf, templateData)
 	if err != nil {
-		fmt.Printf("Error creating client file: %v\n", err)
-		os.Exit(1)
+		return err
 	}
-	defer file.Close()
 
-	if err := tmpl.Execute(file, templateData); err != nil {
-		fmt.Printf("Error executing client template: %v\n", err)
-		os.Exit(1)
+	filename := fmt.Sprintf("%s/client.go", g.Config.OutputDir)
+	formattedFile, err := imports.Process(filename, buf.Bytes(), nil)
+	if err != nil {
+		return err
 	}
+
+	err = os.WriteFile(filename, formattedFile, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (g *Generator) GenerateServerCode() {
+func (g *Generator) GenerateServerCode() error {
 	tmpl := template.Must(template.ParseFS(templates, "templates/server.tmpl"))
 
 	packageName := ""
@@ -92,15 +101,22 @@ func (g *Generator) GenerateServerCode() {
 		GoModPackage:    g.Vertex.GoModPackage,
 	}
 
-	file, err := os.Create(fmt.Sprintf("%s/server.go", g.Config.OutputDir))
+	var buf bytes.Buffer
+	err := tmpl.Execute(&buf, templateData)
 	if err != nil {
-		fmt.Printf("Error creating server file: %v\n", err)
-		os.Exit(1)
+		return err
 	}
-	defer file.Close()
 
-	if err := tmpl.Execute(file, templateData); err != nil {
-		fmt.Printf("Error executing server template: %v\n", err)
-		os.Exit(1)
+	filename := fmt.Sprintf("%s/server.go", g.Config.OutputDir)
+	formattedFile, err := imports.Process(filename, buf.Bytes(), nil)
+	if err != nil {
+		return err
 	}
+
+	err = os.WriteFile(filename, formattedFile, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
