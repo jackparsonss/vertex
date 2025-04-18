@@ -1,31 +1,16 @@
-package codegen
+package parser
 
 import (
+	"bufio"
 	"fmt"
 	"go/ast"
+	"os"
 	"strings"
 
+	"github.com/jackparsonss/vertex/internal/codegen/types"
+	"github.com/jackparsonss/vertex/internal/codegen/utils"
 	"github.com/jackparsonss/vertex/internal/constants"
 )
-
-type ParamInfo struct {
-	Name string
-	Type string
-}
-
-type FunctionInfo struct {
-	Name             string
-	Path             string
-	Method           string
-	Params           []ParamInfo
-	ReturnType       string
-	IsStruct         bool
-	IsSlice          bool
-	IsMethod         bool
-	ReceiverTypeName string
-	StructName       string
-	PackageName      string
-}
 
 type DeclarationMap map[string]bool
 
@@ -37,11 +22,36 @@ func NewVertexParser(node *ast.File) *VertexParser {
 	return &VertexParser{node: node}
 }
 
-func (v *VertexParser) Parse() []FunctionInfo {
+func (v *VertexParser) Parse() []types.FunctionInfo {
 	structs := v.parseStructDelcarations()
 	functions := v.parseFunctions(structs)
 
 	return functions
+}
+
+func (v *VertexParser) ParseGoMod(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		if strings.HasPrefix(line, "module ") {
+			moduleName := strings.TrimSpace(strings.TrimPrefix(line, "module"))
+			return moduleName, nil
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	return "", fmt.Errorf("no module declaration found in %s", path)
 }
 
 func (v *VertexParser) parseStructDelcarations() DeclarationMap {
@@ -68,7 +78,7 @@ func (v *VertexParser) parseReceiver(fn *ast.FuncDecl, packageName string) (stri
 
 	var receiverTypeName, structName string
 	receiverExpr := fn.Recv.List[0].Type
-	receiverTypeName = GetTypeString(receiverExpr, packageName)
+	receiverTypeName = utils.GetTypeString(receiverExpr, packageName)
 
 	// Extract the struct name without pointer if it's a pointer
 	if starExpr, ok := fn.Recv.List[0].Type.(*ast.StarExpr); ok {
@@ -82,7 +92,7 @@ func (v *VertexParser) parseReceiver(fn *ast.FuncDecl, packageName string) (stri
 	return receiverTypeName, structName, isMethod
 }
 
-func (v *VertexParser) parseFunction(fn *ast.FuncDecl, structsMap DeclarationMap, packageName string) *FunctionInfo {
+func (v *VertexParser) parseFunction(fn *ast.FuncDecl, structsMap DeclarationMap, packageName string) *types.FunctionInfo {
 	path, method := v.parseComment(fn)
 	if path == "" && method == "" {
 		return nil
@@ -92,7 +102,7 @@ func (v *VertexParser) parseFunction(fn *ast.FuncDecl, structsMap DeclarationMap
 	params := v.parseParams(fn)
 	returnType, isStruct, isSlice := v.parseReturnType(fn, structsMap, packageName)
 
-	return &FunctionInfo{
+	return &types.FunctionInfo{
 		Name:             fn.Name.Name,
 		Path:             path,
 		Method:           method,
@@ -107,8 +117,8 @@ func (v *VertexParser) parseFunction(fn *ast.FuncDecl, structsMap DeclarationMap
 	}
 }
 
-func (v *VertexParser) parseParams(fn *ast.FuncDecl) []ParamInfo {
-	var params []ParamInfo
+func (v *VertexParser) parseParams(fn *ast.FuncDecl) []types.ParamInfo {
+	var params []types.ParamInfo
 	if fn.Type.Params == nil {
 		return params
 	}
@@ -116,12 +126,12 @@ func (v *VertexParser) parseParams(fn *ast.FuncDecl) []ParamInfo {
 	for i, param := range fn.Type.Params.List {
 		paramType := fmt.Sprintf("%s", param.Type)
 		if len(param.Names) == 0 {
-			params = append(params, ParamInfo{Name: fmt.Sprintf("param%d", i), Type: paramType})
+			params = append(params, types.ParamInfo{Name: fmt.Sprintf("param%d", i), Type: paramType})
 			continue
 		}
 
 		for _, name := range param.Names {
-			params = append(params, ParamInfo{Name: name.Name, Type: paramType})
+			params = append(params, types.ParamInfo{Name: name.Name, Type: paramType})
 		}
 	}
 
@@ -161,10 +171,10 @@ func (v *VertexParser) parseComment(fn *ast.FuncDecl) (string, string) {
 	return path, method
 }
 
-func (v *VertexParser) parseFunctions(structsMap DeclarationMap) []FunctionInfo {
+func (v *VertexParser) parseFunctions(structsMap DeclarationMap) []types.FunctionInfo {
 	packageName := v.node.Name.Name
 
-	var functions []FunctionInfo
+	var functions []types.FunctionInfo
 	ast.Inspect(v.node, func(n ast.Node) bool {
 		fn, ok := n.(*ast.FuncDecl)
 		if !ok {
@@ -218,5 +228,5 @@ func (v *VertexParser) parseReturnType(fn *ast.FuncDecl, structsMap DeclarationM
 		}
 	}
 
-	return GetTypeString(fn.Type.Results.List[0].Type, packageName), isStruct, isSlice
+	return utils.GetTypeString(fn.Type.Results.List[0].Type, packageName), isStruct, isSlice
 }

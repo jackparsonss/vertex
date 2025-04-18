@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"os"
 
+	"github.com/jackparsonss/vertex/internal/codegen/types"
 	"github.com/jackparsonss/vertex/internal/config"
 )
 
@@ -14,10 +15,10 @@ var templates embed.FS
 
 type Generator struct {
 	Config    config.Config
-	functions []FunctionInfo
+	functions []types.FunctionInfo
 }
 
-func NewGenerator(config config.Config, functions []FunctionInfo) *Generator {
+func NewGenerator(config config.Config, functions []types.FunctionInfo) *Generator {
 	return &Generator{Config: config, functions: functions}
 }
 
@@ -31,7 +32,7 @@ func (g *Generator) GenerateClientCode() {
 
 	templateData := struct {
 		PackageName string
-		Functions   []FunctionInfo
+		Functions   []types.FunctionInfo
 	}{
 		PackageName: packageName,
 		Functions:   g.functions,
@@ -58,8 +59,8 @@ func (g *Generator) GenerateServerCode() {
 		packageName = g.functions[0].PackageName
 	}
 
-	structFuncs := make(map[string][]FunctionInfo)
-	var standaloneFuncs []FunctionInfo
+	structFuncs := make(map[string][]types.FunctionInfo)
+	var standaloneFuncs []types.FunctionInfo
 
 	for _, fn := range g.functions {
 		if fn.IsMethod {
@@ -69,7 +70,7 @@ func (g *Generator) GenerateServerCode() {
 		}
 	}
 
-	allFunctions := make([]FunctionInfo, 0)
+	allFunctions := make([]types.FunctionInfo, 0)
 	for _, fns := range structFuncs {
 		allFunctions = append(allFunctions, fns...)
 	}
@@ -77,9 +78,9 @@ func (g *Generator) GenerateServerCode() {
 
 	templateData := struct {
 		PackageName     string
-		StructFuncs     map[string][]FunctionInfo
-		StandaloneFuncs []FunctionInfo
-		AllFunctions    []FunctionInfo
+		StructFuncs     map[string][]types.FunctionInfo
+		StandaloneFuncs []types.FunctionInfo
+		AllFunctions    []types.FunctionInfo
 	}{
 		PackageName:     packageName,
 		StructFuncs:     structFuncs,

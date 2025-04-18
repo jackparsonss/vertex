@@ -7,12 +7,13 @@ import (
 	"os"
 
 	"github.com/jackparsonss/vertex/internal/codegen"
+	vp "github.com/jackparsonss/vertex/internal/codegen/parser"
 	"github.com/jackparsonss/vertex/internal/config"
 )
 
 type Engine struct {
 	Config       config.Config
-	vertexParser *codegen.VertexParser
+	vertexParser *vp.VertexParser
 }
 
 func NewEngine(config config.Config) *Engine {
@@ -28,7 +29,7 @@ func NewEngine(config config.Config) *Engine {
 		os.Exit(1)
 	}
 
-	return &Engine{vertexParser: codegen.NewVertexParser(node), Config: config}
+	return &Engine{vertexParser: vp.NewVertexParser(node), Config: config}
 }
 
 func (e *Engine) Compile() {

@@ -11,6 +11,7 @@ type Config struct {
 	ServerPort        int
 	ServerEndpoint    string
 	PackageNameOutput string
+	GoModFile         string
 }
 
 func NewConfig(inputFile, outputDir, serverEndpoint, packageNameOutput string, serverPort int) (Config, error) {
@@ -32,11 +33,17 @@ func NewConfig(inputFile, outputDir, serverEndpoint, packageNameOutput string, s
 		return Config{}, fmt.Errorf("error resolving output directory path :%v", err)
 	}
 
+	goModFile, err := filepath.Abs("go.mod")
+	if err != nil {
+		return Config{}, fmt.Errorf("error resolving go.mod file path :%v", err)
+	}
+
 	return Config{
 		InputFile:         absInputFile,
 		OutputDir:         absOutputDir,
 		ServerPort:        serverPort,
 		ServerEndpoint:    serverEndpoint,
 		PackageNameOutput: packageNameOutput,
+		GoModFile:         goModFile,
 	}, nil
 }
