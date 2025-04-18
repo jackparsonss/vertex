@@ -16,18 +16,22 @@ import (
 type DeclarationMap map[string]bool
 
 type VertexParser struct {
-	node   *ast.File
+	nodes  []*ast.File
 	config config.Config
 }
 
-func NewVertexParser(node *ast.File, config config.Config) *VertexParser {
-	return &VertexParser{node: node, config: config}
+func NewVertexParser(nodes []*ast.File, config config.Config) *VertexParser {
+	return &VertexParser{nodes: nodes, config: config}
 }
 
 func (v *VertexParser) Parse() (types.Vertex, error) {
-	structs := v.parseStructDelcarations()
-	functions := v.parseFunctions(structs)
 	goModPackage, err := v.ParseGoMod(v.config.GoModFile)
+	functions := []types.FunctionInfo{}
+
+	for _, node := range v.nodes {
+		structs := v.parseStructDelcarations(node)
+		functions = append(functions, v.parseFunctions(node, structs)...)
+	}
 	if err != nil {
 		return types.Vertex{}, err
 	}
@@ -63,9 +67,9 @@ func (v *VertexParser) ParseGoMod(path string) (string, error) {
 	return "", fmt.Errorf("no module declaration found in %s", path)
 }
 
-func (v *VertexParser) parseStructDelcarations() DeclarationMap {
+func (v *VertexParser) parseStructDelcarations(node *ast.File) DeclarationMap {
 	structs := make(DeclarationMap)
-	ast.Inspect(v.node, func(n ast.Node) bool {
+	ast.Inspect(node, func(n ast.Node) bool {
 		typeSpec, ok := n.(*ast.TypeSpec)
 		if !ok {
 			return true
@@ -179,11 +183,11 @@ func (v *VertexParser) parseComment(fn *ast.FuncDecl) (string, string) {
 	return path, method
 }
 
-func (v *VertexParser) parseFunctions(structsMap DeclarationMap) []types.FunctionInfo {
-	packageName := v.node.Name.Name
+func (v *VertexParser) parseFunctions(node *ast.File, structsMap DeclarationMap) []types.FunctionInfo {
+	packageName := node.Name.Name
 
 	var functions []types.FunctionInfo
-	ast.Inspect(v.node, func(n ast.Node) bool {
+	ast.Inspect(node, func(n ast.Node) bool {
 		fn, ok := n.(*ast.FuncDecl)
 		if !ok {
 			return true

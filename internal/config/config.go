@@ -6,24 +6,14 @@ import (
 )
 
 type Config struct {
-	InputFile         string
+	InputDir          string
 	OutputDir         string
-	ServerPort        int
-	ServerEndpoint    string
 	PackageNameOutput string
 	GoModFile         string
 }
 
-func NewConfig(inputFile, outputDir, serverEndpoint, packageNameOutput string, serverPort int) (Config, error) {
-	if inputFile == "" {
-		return Config{}, fmt.Errorf("input file is required")
-	}
-
-	if serverEndpoint == "" {
-		serverEndpoint = fmt.Sprintf("http://localhost:%d", serverPort)
-	}
-
-	absInputFile, err := filepath.Abs(inputFile)
+func NewConfig(outputDir, packageNameOutput string) (Config, error) {
+	absInputFile, err := filepath.Abs(".")
 	if err != nil {
 		return Config{}, fmt.Errorf("error resolving input file path :%v", err)
 	}
@@ -39,10 +29,8 @@ func NewConfig(inputFile, outputDir, serverEndpoint, packageNameOutput string, s
 	}
 
 	return Config{
-		InputFile:         absInputFile,
+		InputDir:          absInputFile,
 		OutputDir:         absOutputDir,
-		ServerPort:        serverPort,
-		ServerEndpoint:    serverEndpoint,
 		PackageNameOutput: packageNameOutput,
 		GoModFile:         goModFile,
 	}, nil

@@ -1,27 +1,34 @@
 package main
 
 import (
-	"flag"
 	"log"
+	"os"
 
 	"github.com/jackparsonss/vertex/engine"
 	"github.com/jackparsonss/vertex/internal/config"
 )
 
 func main() {
-	inputFile := flag.String("input", "", "Go source file to parse (required)")
-	outputDir := flag.String("output", "generated", "Directory where generated files will be placed")
-	serverPort := flag.Int("port", 8080, "Port for the server to listen on")
-	serverEndpoint := flag.String("endpoint", "", "Base URL for the client to connect to (defaults to http://localhost:<port>)")
-	packageName := flag.String("package", "generated", "Package name for the generated code")
+	if len(os.Args) < 2 {
+		log.Fatalln("Must provide vertex with command, use 'vertex run' to start up")
+	}
 
-	flag.Parse()
+	if os.Args[1] != "run" {
+		log.Fatalln("Invalid command, use 'vertex run' to start up")
+	}
 
-	c, err := config.NewConfig(*inputFile, *outputDir, *serverEndpoint, *packageName, *serverPort)
+	c, err := config.NewConfig("vertex", "vertex")
 	if err != nil {
 		log.Fatalf("Error creating config: %v\n", err)
 	}
 
-	engine := engine.NewEngine(c)
-	engine.Compile()
+	engine, err := engine.NewEngine(c)
+	if err != nil {
+		log.Fatalf("Error creating engine: %v\n", err)
+	}
+
+	err = engine.Compile()
+	if err != nil {
+		log.Fatalf("Error compiling: %v\n", err)
+	}
 }

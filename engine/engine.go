@@ -2,9 +2,11 @@ package engine
 
 import (
 	"fmt"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 
 	"github.com/jackparsonss/vertex/internal/codegen"
 	vp "github.com/jackparsonss/vertex/internal/codegen/parser"
@@ -16,20 +18,47 @@ type Engine struct {
 	vertexParser *vp.VertexParser
 }
 
-func NewEngine(config config.Config) *Engine {
-	fset := token.NewFileSet()
-	node, err := parser.ParseFile(fset, config.InputFile, nil, parser.ParseComments)
+func NewEngine(config config.Config) (*Engine, error) {
+	nodes, err := getNodes(config.InputDir)
 	if err != nil {
-		fmt.Printf("Error parsing file: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
 
 	if err := os.MkdirAll(config.OutputDir, 0755); err != nil {
-		fmt.Printf("Error creating directory: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
 
-	return &Engine{vertexParser: vp.NewVertexParser(node, config), Config: config}
+	return &Engine{vertexParser: vp.NewVertexParser(nodes, config), Config: config}, nil
+}
+
+func getNodes(root string) ([]*ast.File, error) {
+	fset := token.NewFileSet()
+	var astFiles []*ast.File
+
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !d.IsDir() {
+			return nil
+		}
+
+		pkgs, err := parser.ParseDir(fset, path, nil, parser.ParseComments)
+		if err != nil {
+			return fmt.Errorf("failed to parse dir %s: %w", path, err)
+		}
+
+		for _, pkg := range pkgs {
+			for _, file := range pkg.Files {
+				astFiles = append(astFiles, file)
+			}
+		}
+
+		return nil
+	})
+
+	return astFiles, err
 }
 
 func (e *Engine) Compile() error {
