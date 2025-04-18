@@ -14,10 +14,8 @@ import (
 )
 
 {{range .Functions}}
-// {{.Name}} is a client wrapper that calls the server function
 func {{.Name}}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{.Name}} {{.Type}}{{end}}) {{.ReturnType}} {
 	{{if eq .Method "GET"}}
-	// Build query string
 	query := url.Values{}
 	{{range .Params}}
 	{{if eq .Type "string"}}
@@ -27,7 +25,6 @@ func {{.Name}}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{.Name}
 	{{end}}
 	{{end}}
 
-	// Make GET request
 	resp, err := http.Get(fmt.Sprintf("http://localhost:8080{{.Path}}?%s", query.Encode()))
 	{{else}}
 	// Prepare request body
@@ -36,7 +33,6 @@ func {{.Name}}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{.Name}
 		{{end}}
 	})
 
-	// Make POST request
 	resp, err := http.Post("http://localhost:8080{{.Path}}", "application/json", bytes.NewBuffer(requestBody))
 	{{end}}
 	if err != nil {
@@ -58,7 +54,6 @@ func {{.Name}}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{.Name}
 	}
 	defer resp.Body.Close()
 
-	// Parse response
 	responseData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("Error reading response: %v\n", err)
@@ -78,7 +73,6 @@ func {{.Name}}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{.Name}
 		{{end}}
 	}
 
-	// Decode response based on return type
 	var result {{.ReturnType}}
 	if err := json.Unmarshal(responseData, &result); err != nil {
 		fmt.Printf("Error parsing response: %v\n", err)

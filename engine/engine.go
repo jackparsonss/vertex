@@ -39,8 +39,15 @@ func (e *Engine) Compile() error {
 	}
 
 	generator := codegen.NewGenerator(e.Config, v)
-	generator.GenerateServerCode()
-	generator.GenerateClientCode()
+	err = generator.GenerateServerCode()
+	if err != nil {
+		return err
+	}
+
+	err = generator.GenerateClientCode()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
