@@ -8,8 +8,7 @@ import (
 	"strconv"
 	"reflect"
 	
-	// Import the main package to access the original types
-	"github.com/jackparsonss/vertex/cmd/{{ .PackageName }}"
+	"{{ .GoModPackage }}/{{ .PackageName }}"
 )
 
 // Map to store service instances

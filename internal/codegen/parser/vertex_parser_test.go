@@ -54,17 +54,14 @@ func TestExtractModuleName(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create a temporary go.mod file with the test content
 			filePath := filepath.Join(tempDir, "go.mod")
 			err := os.WriteFile(filePath, []byte(tc.fileContent), 0644)
 			if err != nil {
 				t.Fatalf("Failed to write test file: %v", err)
 			}
 
-			// Test the function
 			moduleName, err := vp.ParseGoMod(filePath)
 
-			// Check error condition
 			if tc.expectError && err == nil {
 				t.Errorf("Expected error but got none")
 			}
@@ -72,7 +69,6 @@ func TestExtractModuleName(t *testing.T) {
 				t.Errorf("Expected no error but got: %v", err)
 			}
 
-			// Check module name
 			if moduleName != tc.expectedModule {
 				t.Errorf("Expected module name '%s', got '%s'", tc.expectedModule, moduleName)
 			}

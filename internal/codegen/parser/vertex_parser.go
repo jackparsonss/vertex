@@ -9,24 +9,33 @@ import (
 
 	"github.com/jackparsonss/vertex/internal/codegen/types"
 	"github.com/jackparsonss/vertex/internal/codegen/utils"
+	"github.com/jackparsonss/vertex/internal/config"
 	"github.com/jackparsonss/vertex/internal/constants"
 )
 
 type DeclarationMap map[string]bool
 
 type VertexParser struct {
-	node *ast.File
+	node   *ast.File
+	config config.Config
 }
 
-func NewVertexParser(node *ast.File) *VertexParser {
-	return &VertexParser{node: node}
+func NewVertexParser(node *ast.File, config config.Config) *VertexParser {
+	return &VertexParser{node: node, config: config}
 }
 
-func (v *VertexParser) Parse() []types.FunctionInfo {
+func (v *VertexParser) Parse() (types.Vertex, error) {
 	structs := v.parseStructDelcarations()
 	functions := v.parseFunctions(structs)
+	goModPackage, err := v.ParseGoMod(v.config.GoModFile)
+	if err != nil {
+		return types.Vertex{}, err
+	}
 
-	return functions
+	return types.Vertex{
+		GoModPackage: goModPackage,
+		Functions:    functions,
+	}, nil
 }
 
 func (v *VertexParser) ParseGoMod(path string) (string, error) {
@@ -80,7 +89,6 @@ func (v *VertexParser) parseReceiver(fn *ast.FuncDecl, packageName string) (stri
 	receiverExpr := fn.Recv.List[0].Type
 	receiverTypeName = utils.GetTypeString(receiverExpr, packageName)
 
-	// Extract the struct name without pointer if it's a pointer
 	if starExpr, ok := fn.Recv.List[0].Type.(*ast.StarExpr); ok {
 		if ident, ok := starExpr.X.(*ast.Ident); ok {
 			structName = ident.Name

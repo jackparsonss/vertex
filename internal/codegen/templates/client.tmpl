@@ -10,8 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	
-	// Import the main package to access the original types
-	"github.com/jackparsonss/vertex/cmd/{{ .PackageName }}"
+	"{{ .GoModPackage }}/{{ .PackageName }}"
 )
 
 {{range .Functions}}

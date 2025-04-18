@@ -18,3 +18,8 @@ type FunctionInfo struct {
 	StructName       string
 	PackageName      string
 }
+
+type Vertex struct {
+	Functions    []FunctionInfo
+	GoModPackage string
+}

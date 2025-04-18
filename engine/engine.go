@@ -29,13 +29,18 @@ func NewEngine(config config.Config) *Engine {
 		os.Exit(1)
 	}
 
-	return &Engine{vertexParser: vp.NewVertexParser(node), Config: config}
+	return &Engine{vertexParser: vp.NewVertexParser(node, config), Config: config}
 }
 
-func (e *Engine) Compile() {
-	functions := e.vertexParser.Parse()
+func (e *Engine) Compile() error {
+	v, err := e.vertexParser.Parse()
+	if err != nil {
+		return err
+	}
 
-	generator := codegen.NewGenerator(e.Config, functions)
+	generator := codegen.NewGenerator(e.Config, v)
 	generator.GenerateServerCode()
 	generator.GenerateClientCode()
+
+	return nil
 }

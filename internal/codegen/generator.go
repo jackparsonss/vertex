@@ -14,28 +14,30 @@ import (
 var templates embed.FS
 
 type Generator struct {
-	Config    config.Config
-	functions []types.FunctionInfo
+	Config config.Config
+	Vertex types.Vertex
 }
 
-func NewGenerator(config config.Config, functions []types.FunctionInfo) *Generator {
-	return &Generator{Config: config, functions: functions}
+func NewGenerator(config config.Config, v types.Vertex) *Generator {
+	return &Generator{Config: config, Vertex: v}
 }
 
 func (g *Generator) GenerateClientCode() {
 	tmpl := template.Must(template.ParseFS(templates, "templates/client.tmpl"))
 
 	packageName := ""
-	if len(g.functions) > 0 {
-		packageName = g.functions[0].PackageName
+	if len(g.Vertex.Functions) > 0 {
+		packageName = g.Vertex.Functions[0].PackageName
 	}
 
 	templateData := struct {
-		PackageName string
-		Functions   []types.FunctionInfo
+		PackageName  string
+		Functions    []types.FunctionInfo
+		GoModPackage string
 	}{
-		PackageName: packageName,
-		Functions:   g.functions,
+		PackageName:  packageName,
+		Functions:    g.Vertex.Functions,
+		GoModPackage: g.Vertex.GoModPackage,
 	}
 
 	file, err := os.Create(fmt.Sprintf("%s/client.go", g.Config.OutputDir))
@@ -55,14 +57,14 @@ func (g *Generator) GenerateServerCode() {
 	tmpl := template.Must(template.ParseFS(templates, "templates/server.tmpl"))
 
 	packageName := ""
-	if len(g.functions) > 0 {
-		packageName = g.functions[0].PackageName
+	if len(g.Vertex.Functions) > 0 {
+		packageName = g.Vertex.Functions[0].PackageName
 	}
 
 	structFuncs := make(map[string][]types.FunctionInfo)
 	var standaloneFuncs []types.FunctionInfo
 
-	for _, fn := range g.functions {
+	for _, fn := range g.Vertex.Functions {
 		if fn.IsMethod {
 			structFuncs[fn.StructName] = append(structFuncs[fn.StructName], fn)
 		} else {
@@ -81,11 +83,13 @@ func (g *Generator) GenerateServerCode() {
 		StructFuncs     map[string][]types.FunctionInfo
 		StandaloneFuncs []types.FunctionInfo
 		AllFunctions    []types.FunctionInfo
+		GoModPackage    string
 	}{
 		PackageName:     packageName,
 		StructFuncs:     structFuncs,
 		StandaloneFuncs: standaloneFuncs,
 		AllFunctions:    allFunctions,
+		GoModPackage:    g.Vertex.GoModPackage,
 	}
 
 	file, err := os.Create(fmt.Sprintf("%s/server.go", g.Config.OutputDir))
