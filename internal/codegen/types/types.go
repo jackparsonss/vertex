@@ -11,7 +11,6 @@ type FunctionInfo struct {
 	Method           string
 	Params           []ParamInfo
 	ReturnType       string
-	IsStruct         bool
 	IsSlice          bool
 	IsMethod         bool
 	ReceiverTypeName string

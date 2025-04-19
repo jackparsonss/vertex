@@ -167,7 +167,7 @@ func (v *VertexParser) parseFunction(fn *ast.FuncDecl, structsMap types.Declarat
 
 	receiverTypeName, structName, isMethod := v.parseReceiver(fn, structsMap)
 	params := v.parseParams(fn)
-	returnType, isStruct, isSlice := v.parseReturnType(fn, structsMap)
+	returnType, isSlice := v.parseReturnType(fn, structsMap)
 
 	return &types.FunctionInfo{
 		Name:             fn.Name.Name,
@@ -175,7 +175,6 @@ func (v *VertexParser) parseFunction(fn *ast.FuncDecl, structsMap types.Declarat
 		Method:           method,
 		Params:           params,
 		ReturnType:       returnType,
-		IsStruct:         isStruct,
 		IsSlice:          isSlice,
 		ReceiverTypeName: receiverTypeName,
 		StructName:       structName,
@@ -206,32 +205,38 @@ func (v *VertexParser) parseParams(fn *ast.FuncDecl) []types.ParamInfo {
 }
 
 func (v *VertexParser) parseComment(fn *ast.FuncDecl) (string, string) {
+	if fn.Doc == nil {
+		return "", ""
+	}
+
 	var path, method string
 	for _, comment := range fn.Doc.List {
 		text := comment.Text
-
 		if !strings.Contains(text, constants.SERVER_DIRECTIVE) {
 			continue
 		}
 
-		if strings.Contains(text, constants.PATH_DIRECTIVE) {
-			pathStart := strings.Index(text, constants.PATH_DIRECTIVE) + 5
-			pathEnd := strings.Index(text[pathStart:], " ")
-			if pathEnd == -1 {
-				path = text[pathStart:]
-			} else {
-				path = text[pathStart : pathStart+pathEnd]
-			}
+		pathDirective := strings.TrimSuffix(constants.PATH_DIRECTIVE, "=")
+		methodDirective := strings.TrimSuffix(constants.METHOD_DIRECTIVE, "=")
+
+		pathPattern := regexp.MustCompile(pathDirective + `\s*=\s*(\S+)`)
+		pathMatches := pathPattern.FindStringSubmatch(text)
+		if len(pathMatches) > 1 {
+			path = pathMatches[1]
 		}
 
-		if strings.Contains(text, constants.METHOD_DIRECTIVE) {
-			methodStart := strings.Index(text, constants.METHOD_DIRECTIVE) + 7
-			methodEnd := strings.Index(text[methodStart:], " ")
-			if methodEnd == -1 {
-				method = text[methodStart:]
-			} else {
-				method = text[methodStart : methodStart+methodEnd]
-			}
+		if path == "" {
+			return "", ""
+		}
+
+		methodPattern := regexp.MustCompile(methodDirective + `\s*=\s*(\S+)`)
+		methodMatches := methodPattern.FindStringSubmatch(text)
+		if len(methodMatches) > 1 {
+			method = methodMatches[1]
+		}
+
+		if method == "" {
+			return "", ""
 		}
 	}
 
@@ -265,35 +270,15 @@ func (v *VertexParser) parseFunctions(node *ast.File, structsMap types.Declarati
 	return functions
 }
 
-func (v *VertexParser) parseReturnType(fn *ast.FuncDecl, structsMap types.DeclarationMap) (string, bool, bool) {
+func (v *VertexParser) parseReturnType(fn *ast.FuncDecl, structsMap types.DeclarationMap) (string, bool) {
 	if fn.Type.Results == nil || len(fn.Type.Results.List) == 0 {
-		return "", false, false
+		return "", false
 	}
 
-	var isStruct, isSlice bool
-	_, isStruct = fn.Type.Results.List[0].Type.(*ast.StructType)
-	if ident, ok := fn.Type.Results.List[0].Type.(*ast.Ident); ok {
-		if _, exists := structsMap[ident.Name]; exists {
-			isStruct = true
-		}
-	}
-
-	if starExpr, ok := fn.Type.Results.List[0].Type.(*ast.StarExpr); ok {
-		if ident, ok := starExpr.X.(*ast.Ident); ok {
-			if _, exists := structsMap[ident.Name]; exists {
-				isStruct = true
-			}
-		}
-	}
-
-	if arrayType, ok := fn.Type.Results.List[0].Type.(*ast.ArrayType); ok {
+	isSlice := false
+	if _, ok := fn.Type.Results.List[0].Type.(*ast.ArrayType); ok {
 		isSlice = true
-		if ident, ok := arrayType.Elt.(*ast.Ident); ok {
-			if _, exists := structsMap[ident.Name]; exists {
-				isStruct = true
-			}
-		}
 	}
 
-	return utils.GetTypeString(fn.Type.Results.List[0].Type, structsMap), isStruct, isSlice
+	return utils.GetTypeString(fn.Type.Results.List[0].Type, structsMap), isSlice
 }

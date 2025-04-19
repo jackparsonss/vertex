@@ -1,13 +1,111 @@
 package parser
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/jackparsonss/vertex/internal/codegen/types"
+	"github.com/jackparsonss/vertex/internal/config"
+	"github.com/stretchr/testify/assert"
 )
+
+func TestParseComment(t *testing.T) {
+	vp := &VertexParser{}
+
+	tests := []struct {
+		name           string
+		commentCode    string
+		expectedPath   string
+		expectedMethod string
+	}{
+		{
+			name:           "Both path and method in same comment",
+			commentCode:    "// @server path=/api/users method=GET\nfunc GetUsers() {}",
+			expectedPath:   "/api/users",
+			expectedMethod: "GET",
+		},
+		{
+			name:           "No server directive",
+			commentCode:    "// This is just a regular comment\nfunc RegularFunction() {}",
+			expectedPath:   "",
+			expectedMethod: "",
+		},
+		{
+			name: "Multiple server directives",
+			commentCode: `// @server path=/api/v1/users method=GET
+			// @server path=/api/v2/users method=POST
+			func UserEndpoint() {}`,
+			expectedPath:   "/api/v2/users",
+			expectedMethod: "POST",
+		},
+		{
+			name:           "Path at end of comment",
+			commentCode:    "// @server method=PUT path=/api/update\nfunc UpdateResource() {}",
+			expectedPath:   "/api/update",
+			expectedMethod: "PUT",
+		},
+		{
+			name:           "No doc comment",
+			commentCode:    "func NoComment() {}",
+			expectedPath:   "",
+			expectedMethod: "",
+		},
+		{
+			name:           "Complex path with parameters",
+			commentCode:    "// @server path=/api/users/{id}/posts?sort=desc method=GET\nfunc GetUserPosts() {}",
+			expectedPath:   "/api/users/{id}/posts?sort=desc",
+			expectedMethod: "GET",
+		},
+		{
+			name:           "Whitespace in directives",
+			commentCode:    "// @server path = /api/resources method = PATCH\nfunc PatchResource() {}",
+			expectedPath:   "/api/resources",
+			expectedMethod: "PATCH",
+		},
+		{
+			name:           "Empty directives",
+			commentCode:    "// @server path= method=\nfunc EmptyDirectives() {}",
+			expectedPath:   "",
+			expectedMethod: "",
+		},
+		{
+			name:           "Multiple spaces between directives",
+			commentCode:    "// @server path=/api/v1      method=GET\nfunc WithSpaces() {}",
+			expectedPath:   "/api/v1",
+			expectedMethod: "GET",
+		},
+		{
+			name:           "Path with special characters",
+			commentCode:    "// @server path=/api/v1/data-export/{format} method=GET\nfunc ExportData() {}",
+			expectedPath:   "/api/v1/data-export/{format}",
+			expectedMethod: "GET",
+		},
+		{
+			name:           "Method with lowercase",
+			commentCode:    "// @server path=/api/data method=get\nfunc GetDataLowercase() {}",
+			expectedPath:   "/api/data",
+			expectedMethod: "get",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fn := parseFunctionCode(t, tc.commentCode)
+
+			path, method := vp.parseComment(fn)
+
+			assert.Equal(t, tc.expectedPath, path, "Path should match expected value")
+			assert.Equal(t, tc.expectedMethod, method, "Method should match expected value")
+		})
+	}
+}
 
 func TestExtractModuleName(t *testing.T) {
 	vp := VertexParser{}
@@ -199,4 +297,147 @@ go 1.24
 	if err != nil {
 		t.Errorf("runGoModTidy failed on valid module: %v", err)
 	}
+}
+
+func TestParseReturnType(t *testing.T) {
+	tests := []struct {
+		name            string
+		functionCode    string
+		structsMap      types.DeclarationMap
+		expectedType    string
+		expectedIsSlice bool
+	}{
+		{
+			name: "No return type",
+			functionCode: `
+				func NoReturn() {
+					// Function with no return type
+				}
+			`,
+			structsMap:      types.DeclarationMap{},
+			expectedType:    "",
+			expectedIsSlice: false,
+		},
+		{
+			name: "Basic return type",
+			functionCode: `
+				func BasicReturn() string {
+					return "hello"
+				}
+			`,
+			structsMap:      types.DeclarationMap{},
+			expectedType:    "string",
+			expectedIsSlice: false,
+		},
+		{
+			name: "Pointer return type",
+			functionCode: `
+				func PointerReturn() *int {
+					x := 42
+					return &x
+				}
+			`,
+			structsMap:      types.DeclarationMap{},
+			expectedType:    "*int",
+			expectedIsSlice: false,
+		},
+		{
+			name: "Slice return type",
+			functionCode: `
+				func SliceReturn() []string {
+					return []string{"hello", "world"}
+				}
+			`,
+			structsMap:      types.DeclarationMap{},
+			expectedType:    "[]string",
+			expectedIsSlice: true,
+		},
+		{
+			name: "Map return type",
+			functionCode: `
+				func MapReturn() map[string]int {
+					return map[string]int{"one": 1}
+				}
+			`,
+			structsMap:      types.DeclarationMap{},
+			expectedType:    "map[string]int",
+			expectedIsSlice: false,
+		},
+		{
+			name: "Custom type return",
+			functionCode: `
+				func CustomReturn() CustomType {
+					return CustomType{}
+				}
+			`,
+			structsMap:      types.DeclarationMap{"CustomType": "mypackage"},
+			expectedType:    "mypackage.CustomType",
+			expectedIsSlice: false,
+		},
+		{
+			name: "Slice of custom type return",
+			functionCode: `
+				func CustomSliceReturn() []CustomType {
+					return []CustomType{}
+				}
+			`,
+			structsMap:      types.DeclarationMap{"CustomType": "mypackage"},
+			expectedType:    "[]mypackage.CustomType",
+			expectedIsSlice: true,
+		},
+		{
+			name: "Multiple return values (should take first only)",
+			functionCode: `
+				func MultipleReturn() (string, error) {
+					return "result", nil
+				}
+			`,
+			structsMap:      types.DeclarationMap{},
+			expectedType:    "string",
+			expectedIsSlice: false,
+		},
+		{
+			name: "Selector expression return type",
+			functionCode: `
+				func SelectorReturn() fmt.Stringer {
+					return nil
+				}
+			`,
+			structsMap:      types.DeclarationMap{},
+			expectedType:    "fmt.Stringer",
+			expectedIsSlice: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			funcDecl := parseFunctionCode(t, tt.functionCode)
+
+			vp := NewVertexParser([]*ast.File{}, config.Config{})
+
+			returnType, isSlice := vp.parseReturnType(funcDecl, tt.structsMap)
+
+			assert.Equal(t, tt.expectedType, returnType, "Return type should match expected")
+			assert.Equal(t, tt.expectedIsSlice, isSlice, "IsSlice flag should match expected")
+		})
+	}
+}
+
+func parseFunctionCode(t *testing.T, code string) *ast.FuncDecl {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	node, err := parser.ParseFile(fset, "test.go", "package main\n"+code, parser.ParseComments)
+	if err != nil {
+		t.Fatalf("Failed to parse code: %v", err)
+	}
+
+	for _, decl := range node.Decls {
+		if funcDecl, ok := decl.(*ast.FuncDecl); ok {
+			return funcDecl
+		}
+	}
+
+	t.Fatalf("Could not find function declaration in code")
+	return nil
 }
