@@ -2,6 +2,7 @@ package parser
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -169,5 +170,33 @@ func TestAddVertexReplace(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRunGoModTidy(t *testing.T) {
+	vp := VertexParser{}
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("skipping test; 'go' command not available")
+	}
+
+	tempDir, err := os.MkdirTemp("", "go-mod-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	goModPath := filepath.Join(tempDir, "go.mod")
+	goModContent := `module example.com/validmodule
+
+go 1.24
+`
+	err = os.WriteFile(goModPath, []byte(goModContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	err = vp.RunGoModTidy(goModPath)
+	if err != nil {
+		t.Errorf("runGoModTidy failed on valid module: %v", err)
 	}
 }
