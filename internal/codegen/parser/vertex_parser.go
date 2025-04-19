@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"go/ast"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/jackparsonss/vertex/internal/codegen/types"
@@ -26,20 +29,73 @@ func NewVertexParser(nodes []*ast.File, config config.Config) *VertexParser {
 
 func (v *VertexParser) Parse() (types.Vertex, error) {
 	goModPackage, err := v.ParseGoMod(v.config.GoModFile)
-	functions := []types.FunctionInfo{}
+	if err != nil {
+		return types.Vertex{}, err
+	}
 
+	err = v.AddGoModReplace(v.config.GoModFile)
+	if err != nil {
+		return types.Vertex{}, err
+	}
+
+	err = v.RunGoModTidy(v.config.GoModFile)
+	if err != nil {
+		return types.Vertex{}, err
+	}
+
+	functions := []types.FunctionInfo{}
 	for _, node := range v.nodes {
 		structs := v.parseStructDelcarations(node)
 		functions = append(functions, v.parseFunctions(node, structs)...)
-	}
-	if err != nil {
-		return types.Vertex{}, err
 	}
 
 	return types.Vertex{
 		GoModPackage: goModPackage,
 		Functions:    functions,
 	}, nil
+}
+
+func (v *VertexParser) AddGoModReplace(path string) error {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	contentStr := string(content)
+
+	replacePattern := regexp.MustCompile(`(?m)^replace\s+vertex\s*=>\s*\./vertex`)
+	if replacePattern.MatchString(contentStr) {
+		return nil
+	}
+
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if len(contentStr) > 0 && !strings.HasSuffix(contentStr, "\n") {
+		if _, err := file.WriteString("\n"); err != nil {
+			return err
+		}
+	}
+
+	_, err = file.WriteString("\nreplace vertex => ./vertex\n")
+	return err
+}
+
+func (v *VertexParser) RunGoModTidy(path string) error {
+	dir := filepath.Dir(path)
+
+	cmd := exec.Command("go", "mod", "tidy")
+	cmd.Dir = dir
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("go mod tidy failed: %v\nOutput: %s", err, output)
+	}
+
+	return nil
 }
 
 func (v *VertexParser) ParseGoMod(path string) (string, error) {

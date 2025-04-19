@@ -51,16 +51,14 @@ vertex run
 ```go
 package main
 
-import (
-    "yourpackage/vertex"
-)
+import "vertex"
 
 func main() {
     // Start the server
-    go generated.StartServer()
+    go vertex.StartServer()
 
     // Or use the client code from another part of your application
-    user := generated.GetUser(1)
+    user := vertex.GetUser(1)
     fmt.Printf("Got user: %v\n", user)
 }
 ```
