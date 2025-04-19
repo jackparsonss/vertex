@@ -24,6 +24,12 @@ func TestGetTypeString(t *testing.T) {
 			expected: "int",
 		},
 		{
+			name:     "Default case - FuncType",
+			code:     "var x func(int) string",
+			typeMap:  types.DeclarationMap{},
+			expected: "*ast.FuncType",
+		},
+		{
 			name:     "Identifier with package prefix",
 			code:     "var x CustomType",
 			typeMap:  types.DeclarationMap{"CustomType": "mypackage"},
@@ -106,7 +112,6 @@ func TestGetTypeString(t *testing.T) {
 	}
 }
 
-// Helper function to parse code and extract the type expression
 func parseTypeExpr(t *testing.T, code string) ast.Expr {
 	t.Helper()
 
@@ -116,7 +121,6 @@ func parseTypeExpr(t *testing.T, code string) ast.Expr {
 		t.Fatalf("Failed to parse code: %v", err)
 	}
 
-	// Find the first variable declaration and return its type
 	for _, decl := range node.Decls {
 		if genDecl, ok := decl.(*ast.GenDecl); ok {
 			for _, spec := range genDecl.Specs {
