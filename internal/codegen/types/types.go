@@ -23,3 +23,5 @@ type Vertex struct {
 	Functions    []FunctionInfo
 	GoModPackage string
 }
+
+type DeclarationMap map[string]string

@@ -16,8 +16,6 @@ import (
 	"github.com/jackparsonss/vertex/internal/constants"
 )
 
-type DeclarationMap map[string]bool
-
 type VertexParser struct {
 	nodes  []*ast.File
 	config config.Config
@@ -123,15 +121,16 @@ func (v *VertexParser) ParseGoMod(path string) (string, error) {
 	return "", fmt.Errorf("no module declaration found in %s", path)
 }
 
-func (v *VertexParser) parseStructDelcarations(node *ast.File) DeclarationMap {
-	structs := make(DeclarationMap)
+func (v *VertexParser) parseStructDelcarations(node *ast.File) types.DeclarationMap {
+	structs := make(types.DeclarationMap)
 	ast.Inspect(node, func(n ast.Node) bool {
 		typeSpec, ok := n.(*ast.TypeSpec)
 		if !ok {
 			return true
 		}
+
 		if _, ok := typeSpec.Type.(*ast.StructType); ok {
-			structs[typeSpec.Name.Name] = true
+			structs[typeSpec.Name.Name] = node.Name.Name
 		}
 		return true
 	})
@@ -139,7 +138,7 @@ func (v *VertexParser) parseStructDelcarations(node *ast.File) DeclarationMap {
 	return structs
 }
 
-func (v *VertexParser) parseReceiver(fn *ast.FuncDecl, packageName string) (string, string, bool) {
+func (v *VertexParser) parseReceiver(fn *ast.FuncDecl, packageName types.DeclarationMap) (string, string, bool) {
 	isMethod := fn.Recv != nil && len(fn.Recv.List) > 0
 	if !isMethod {
 		return "", "", false
@@ -160,15 +159,15 @@ func (v *VertexParser) parseReceiver(fn *ast.FuncDecl, packageName string) (stri
 	return receiverTypeName, structName, isMethod
 }
 
-func (v *VertexParser) parseFunction(fn *ast.FuncDecl, structsMap DeclarationMap, packageName string) *types.FunctionInfo {
+func (v *VertexParser) parseFunction(fn *ast.FuncDecl, structsMap types.DeclarationMap, packageName string) *types.FunctionInfo {
 	path, method := v.parseComment(fn)
 	if path == "" && method == "" {
 		return nil
 	}
 
-	receiverTypeName, structName, isMethod := v.parseReceiver(fn, packageName)
+	receiverTypeName, structName, isMethod := v.parseReceiver(fn, structsMap)
 	params := v.parseParams(fn)
-	returnType, isStruct, isSlice := v.parseReturnType(fn, structsMap, packageName)
+	returnType, isStruct, isSlice := v.parseReturnType(fn, structsMap)
 
 	return &types.FunctionInfo{
 		Name:             fn.Name.Name,
@@ -239,7 +238,7 @@ func (v *VertexParser) parseComment(fn *ast.FuncDecl) (string, string) {
 	return path, method
 }
 
-func (v *VertexParser) parseFunctions(node *ast.File, structsMap DeclarationMap) []types.FunctionInfo {
+func (v *VertexParser) parseFunctions(node *ast.File, structsMap types.DeclarationMap) []types.FunctionInfo {
 	packageName := node.Name.Name
 
 	var functions []types.FunctionInfo
@@ -266,7 +265,7 @@ func (v *VertexParser) parseFunctions(node *ast.File, structsMap DeclarationMap)
 	return functions
 }
 
-func (v *VertexParser) parseReturnType(fn *ast.FuncDecl, structsMap DeclarationMap, packageName string) (string, bool, bool) {
+func (v *VertexParser) parseReturnType(fn *ast.FuncDecl, structsMap types.DeclarationMap) (string, bool, bool) {
 	if fn.Type.Results == nil || len(fn.Type.Results.List) == 0 {
 		return "", false, false
 	}
@@ -296,5 +295,5 @@ func (v *VertexParser) parseReturnType(fn *ast.FuncDecl, structsMap DeclarationM
 		}
 	}
 
-	return utils.GetTypeString(fn.Type.Results.List[0].Type, packageName), isStruct, isSlice
+	return utils.GetTypeString(fn.Type.Results.List[0].Type, structsMap), isStruct, isSlice
 }
