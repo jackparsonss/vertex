@@ -42,10 +42,22 @@ func TestGetTypeString(t *testing.T) {
 			expected: "func(...string)",
 		},
 		{
-			name:     "Default case - FuncType",
+			name:     "Default case - channel",
 			code:     "var x func(ch chan float)",
 			typeMap:  types.DeclarationMap{},
 			expected: "func(chan float)",
+		},
+		{
+			name:     "Default case - in channel",
+			code:     "var x func(ch <-chan float)",
+			typeMap:  types.DeclarationMap{},
+			expected: "func(<-chan float)",
+		},
+		{
+			name:     "Default case - out channel",
+			code:     "var x func(ch chan<- float)",
+			typeMap:  types.DeclarationMap{},
+			expected: "func(chan<- float)",
 		},
 		{
 			name:     "Identifier with package prefix",
@@ -78,6 +90,12 @@ func TestGetTypeString(t *testing.T) {
 			expected: "[]int",
 		},
 		{
+			name:     "Array type",
+			code:     "var x [3]int",
+			typeMap:  types.DeclarationMap{},
+			expected: "[3]int",
+		},
+		{
 			name:     "Array of custom type with package",
 			code:     "var x []CustomType",
 			typeMap:  types.DeclarationMap{"CustomType": "mypackage"},
@@ -102,10 +120,22 @@ func TestGetTypeString(t *testing.T) {
 			expected: "struct{}",
 		},
 		{
+			name:     "Complex Struct type",
+			code:     "var x struct{Name string\nFoo int}",
+			typeMap:  types.DeclarationMap{},
+			expected: "struct{Name string\nFoo int}",
+		},
+		{
 			name:     "Interface type",
 			code:     "var x interface{}",
 			typeMap:  types.DeclarationMap{},
 			expected: "interface{}",
+		},
+		{
+			name:     "Complex Interface type",
+			code:     "var x interface{Name() string\nFoo() int}",
+			typeMap:  types.DeclarationMap{},
+			expected: "interface{Name() string\nFoo() int}",
 		},
 		{
 			name:     "Complex Type - Pointer to Array of Maps",
