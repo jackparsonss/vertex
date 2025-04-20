@@ -27,7 +27,25 @@ func TestGetTypeString(t *testing.T) {
 			name:     "Default case - FuncType",
 			code:     "var x func(int) string",
 			typeMap:  types.DeclarationMap{},
-			expected: "*ast.FuncType",
+			expected: "func(int) string",
+		},
+		{
+			name:     "Default case - FuncType",
+			code:     "var x func(int, string) (string, bool)",
+			typeMap:  types.DeclarationMap{},
+			expected: "func(int, string) (string, bool)",
+		},
+		{
+			name:     "Default case - FuncType",
+			code:     "var x func(...string)",
+			typeMap:  types.DeclarationMap{},
+			expected: "func(...string)",
+		},
+		{
+			name:     "Default case - FuncType",
+			code:     "var x func(ch chan float)",
+			typeMap:  types.DeclarationMap{},
+			expected: "func(chan float)",
 		},
 		{
 			name:     "Identifier with package prefix",
@@ -110,6 +128,18 @@ func TestGetTypeString(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestGetTypeString_DefaultCase(t *testing.T) {
+	expr := &ast.BasicLit{
+		Kind:  token.STRING,
+		Value: `"hello"`,
+	}
+	typeMap := types.DeclarationMap{}
+
+	result := GetTypeString(expr, typeMap)
+
+	assert.Equal(t, "*ast.BasicLit", result)
 }
 
 func parseTypeExpr(t *testing.T, code string) ast.Expr {

@@ -166,7 +166,7 @@ func (v *VertexParser) parseFunction(fn *ast.FuncDecl, structsMap types.Declarat
 	}
 
 	receiverTypeName, structName, isMethod := v.parseReceiver(fn, structsMap)
-	params := v.parseParams(fn)
+	params := v.parseParams(fn, structsMap)
 	returnType, isSlice := v.parseReturnType(fn, structsMap)
 
 	return &types.FunctionInfo{
@@ -183,14 +183,14 @@ func (v *VertexParser) parseFunction(fn *ast.FuncDecl, structsMap types.Declarat
 	}
 }
 
-func (v *VertexParser) parseParams(fn *ast.FuncDecl) []types.ParamInfo {
+func (v *VertexParser) parseParams(fn *ast.FuncDecl, structsMap types.DeclarationMap) []types.ParamInfo {
 	var params []types.ParamInfo
 	if fn.Type.Params == nil {
 		return params
 	}
 
 	for i, param := range fn.Type.Params.List {
-		paramType := fmt.Sprintf("%s", param.Type)
+		paramType := utils.GetTypeString(param.Type, structsMap)
 		if len(param.Names) == 0 {
 			params = append(params, types.ParamInfo{Name: fmt.Sprintf("param%d", i), Type: paramType})
 			continue
