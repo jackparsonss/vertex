@@ -1,15 +1,12 @@
 package parser
 
 import (
-	"bufio"
 	"fmt"
 	"go/ast"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/jackparsonss/vertex/internal/codegen/gomod"
 	"github.com/jackparsonss/vertex/internal/codegen/types"
 	"github.com/jackparsonss/vertex/internal/codegen/utils"
 	"github.com/jackparsonss/vertex/internal/config"
@@ -19,24 +16,27 @@ import (
 type VertexParser struct {
 	nodes  []*ast.File
 	config config.Config
+	gomod  *gomod.GoMod
 }
 
 func NewVertexParser(nodes []*ast.File, config config.Config) *VertexParser {
-	return &VertexParser{nodes: nodes, config: config}
+	return &VertexParser{
+		nodes: nodes, config: config, gomod: gomod.NewGoMod(config.GoModFile),
+	}
 }
 
 func (v *VertexParser) Parse() (types.Vertex, error) {
-	goModPackage, err := v.ParseGoMod(v.config.GoModFile)
+	goModPackage, err := gomod.ParseGoModule(v.config.GoModFile)
 	if err != nil {
 		return types.Vertex{}, err
 	}
 
-	err = v.AddGoModReplace(v.config.GoModFile)
+	err = v.gomod.AddReplace()
 	if err != nil {
 		return types.Vertex{}, err
 	}
 
-	err = v.RunGoModTidy(v.config.GoModFile)
+	err = v.gomod.Tidy()
 	if err != nil {
 		return types.Vertex{}, err
 	}
@@ -51,74 +51,6 @@ func (v *VertexParser) Parse() (types.Vertex, error) {
 		GoModPackage: goModPackage,
 		Functions:    functions,
 	}, nil
-}
-
-func (v *VertexParser) AddGoModReplace(path string) error {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	contentStr := string(content)
-
-	replacePattern := regexp.MustCompile(`(?m)^replace\s+vertex\s*=>\s*\./vertex`)
-	if replacePattern.MatchString(contentStr) {
-		return nil
-	}
-
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	if len(contentStr) > 0 && !strings.HasSuffix(contentStr, "\n") {
-		if _, err := file.WriteString("\n"); err != nil {
-			return err
-		}
-	}
-
-	_, err = file.WriteString("\nreplace vertex => ./vertex\n")
-	return err
-}
-
-func (v *VertexParser) RunGoModTidy(path string) error {
-	dir := filepath.Dir(path)
-
-	cmd := exec.Command("go", "mod", "tidy")
-	cmd.Dir = dir
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("go mod tidy failed: %v\nOutput: %s", err, output)
-	}
-
-	return nil
-}
-
-func (v *VertexParser) ParseGoMod(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		if strings.HasPrefix(line, "module ") {
-			moduleName := strings.TrimSpace(strings.TrimPrefix(line, "module"))
-			return moduleName, nil
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-
-	return "", fmt.Errorf("no module declaration found in %s", path)
 }
 
 func (v *VertexParser) parseStructDelcarations(node *ast.File) types.DeclarationMap {
