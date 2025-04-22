@@ -6,6 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/jackparsonss/vertex/internal/codegen"
@@ -76,6 +77,23 @@ func (e *Engine) Compile() error {
 	err = generator.GenerateClientCode()
 	if err != nil {
 		return err
+	}
+
+	err = generator.GenerateMain()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *Engine) Run() error {
+	cmd := exec.Command("go", "run", "./main.go")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("go run failed: %v", err)
 	}
 
 	return nil

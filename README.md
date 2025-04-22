@@ -13,6 +13,8 @@ go install github.com/jackparsonss/vertex
 ### 1. In your Go code, annotate functions or methods with `@server` comments
 
 ```go
+package serviceA
+
 // GetUser fetches a user by ID
 // @server path=/api/users method=GET
 func GetUser(id int) *User {
@@ -49,18 +51,19 @@ vertex run
 ### 3. Include the generated code in your application
 
 ```go
-package main
+package serviceB
 
 import "vertex"
 
-func main() {
-    // Start the server
-    go vertex.StartServer()
+// @server path=/api/do-something
+func doSomething() {
+  u := vertex.GetUser(1)
 
-    // Or use the client code from another part of your application
-    user := vertex.GetUser(1)
-    fmt.Printf("Got user: %v\n", user)
+  return u.Name
 }
+
+// curl http://localhost:8080/api/do-something
+// {name: "Test User"}
 ```
 
 ## Features

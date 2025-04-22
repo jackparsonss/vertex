@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"path/filepath"
 
 	"github.com/jackparsonss/vertex/internal/codegen/types"
 	"github.com/jackparsonss/vertex/internal/config"
@@ -22,6 +23,40 @@ type Generator struct {
 
 func NewGenerator(config config.Config, v types.Vertex) *Generator {
 	return &Generator{Config: config, Vertex: v}
+}
+
+func (g *Generator) GenerateMain() error {
+	tmpl := template.Must(template.ParseFS(templates, "templates/main.tmpl"))
+
+	templateData := struct {
+		GoModPackage string
+	}{
+		GoModPackage: g.Vertex.GoModPackage,
+	}
+
+	var buf bytes.Buffer
+	err := tmpl.Execute(&buf, templateData)
+	if err != nil {
+		return err
+	}
+
+	p, err := filepath.Abs(".")
+	if err != nil {
+		return err
+	}
+
+	filename := fmt.Sprintf("%s/main.go", p)
+	formattedFile, err := imports.Process(filename, buf.Bytes(), nil)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(filename, formattedFile, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (g *Generator) GenerateClientCode() error {

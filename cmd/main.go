@@ -8,12 +8,23 @@ import (
 	"github.com/jackparsonss/vertex/internal/config"
 )
 
+const (
+	RUN_COMMAND   = "run"
+	BUILD_COMMAND = "build"
+)
+
+var validCommands = map[string]bool{
+	RUN_COMMAND:   true,
+	BUILD_COMMAND: true,
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		log.Fatalln("Must provide vertex with command, use 'vertex run' to start up")
 	}
 
-	if os.Args[1] != "run" {
+	command := os.Args[1]
+	if ok := validCommands[command]; !ok {
 		log.Fatalln("Invalid command, use 'vertex run' to start up")
 	}
 
@@ -30,5 +41,12 @@ func main() {
 	err = engine.Compile()
 	if err != nil {
 		log.Fatalf("Error compiling: %v\n", err)
+	}
+
+	if command == RUN_COMMAND {
+		err = engine.Run()
+		if err != nil {
+			log.Fatalf("Error starting up: %v\n", err)
+		}
 	}
 }
